@@ -9,7 +9,10 @@
 <meta property="og:description" content="이 때, 어디 갈까??? 날짜별 백패킹 박지 날씨 추천">
 <style>:root{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="preconnect" href="https://api.vworld.kr">
+<link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
 <style>
 /* Layout: field-guide side panel (list ↔ detail) on the left, contour-style SVG map filling the right */
 :root{
@@ -313,9 +316,9 @@ svg.map.drag{cursor:grabbing}
   </section>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>window.Datamap=window.Datamap||function(){};</script>
-<script src="https://cdn.jsdelivr.net/npm/datamaps@0.5.9/dist/datamaps.kor.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/datamaps@0.5.9/dist/datamaps.kor.min.js" onload="if(window.drawLand)drawLand()"></script>
 <script>
 /* ---------- data ---------- */
 let FC_T0=null, FC_AT="";
@@ -1177,7 +1180,7 @@ function drawLand(){
  for(let lng=125;lng<=131;lng++){const [x,a]=P(lng,39),[,b]=P(lng,32.8);gh+=`<line x1="${x}" y1="${a}" x2="${x}" y2="${b}"/><text x="${x+1}" y="${P(0,33.15)[1]}">${lng}°E</text>`;}
  $("grid").innerHTML=gh;
  if(!(window.topojson&&window.Datamap&&Datamap.prototype&&typeof Datamap.prototype.korTopo==="object")){
-  $("land").innerHTML=`<text x="${P(126,36)[0]}" y="${P(126,36)[1]}" style="font-size:5px;fill:var(--muted)">지도 경계를 불러오지 못했어요</text>`;return;}
+  return;}
  const T=Datamap.prototype.korTopo;const fc=topojson.feature(T,T.objects.kor);
  const ring=rg=>rg.map((c,i)=>{const [x,y]=P(c[0],c[1]);return(i?"L":"M")+x.toFixed(2)+","+y.toFixed(2)}).join("")+"Z";
  $("land").innerHTML=fc.features.map(f=>{const polys=f.geometry.type==="Polygon"?[f.geometry.coordinates]:f.geometry.coordinates;
@@ -1196,31 +1199,40 @@ function trailUrl(z,y,x){const s=2*RM/2**z,x0=-RM+x*s,y1=RM-y*s;
  return`https://api.vworld.kr/req/wms?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=lt_l_frstclimb&STYLES=lt_l_frstclimb&CRS=EPSG:900913&BBOX=${x0},${y1-s},${x0+s},${y1}&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=true&KEY=${VW_KEY}&DOMAIN=${location.hostname}`;}
 function layersFor(z){const L=BASES[baseMode].map(([name,ext])=>({id:name,url:(z,y,x)=>`https://api.vworld.kr/req/wmts/1.0.0/${VW_KEY}/${name}/${z}/${y}/${x}.${ext}`}));
  if(trailsOn&&z>=TRAIL_MIN_Z)L.push({id:"trail",cls:"trail",url:trailUrl});return L;}
-function queueTiles(){if(!tileRaf)tileRaf=requestAnimationFrame(()=>{tileRaf=0;updateTiles();});}
+let lastZoomT=0,curZ=0,zTimer=0;
+function queueTiles(){if(tileRaf)return;const go=()=>{if(!tileRaf)return;cancelAnimationFrame(tileRaf);clearTimeout(tileRaf);tileRaf=0;updateTiles();};tileRaf=requestAnimationFrame(go);setTimeout(go,80);}
 function updateTiles(){
  if(!home)return;
  const ppu=(svg.clientWidth||600)/view.w;
- const z=Math.max(6,Math.min(19,Math.floor(Math.log2(ppu*SC/256)+.6))),n=2**z,ts=SC/n;
+ let z=Math.max(6,Math.min(19,Math.floor(Math.log2(ppu*SC/256)+.5)));
+ /* while the user is still zooming, keep the current level (the browser scales it) and switch once they pause */
+ if(curZ&&z!==curZ&&performance.now()-lastZoomT<180){clearTimeout(zTimer);zTimer=setTimeout(queueTiles,200);if(Math.abs(z-curZ)<=2)z=curZ;}
+ curZ=z;
+ const n=2**z,ts=SC/n;
  const x0=Math.floor((view.x/SC+X0)*n),x1=Math.floor(((view.x+view.w)/SC+X0)*n),y0=Math.floor((view.y/SC+Y0)*n),y1=Math.floor(((view.y+view.h)/SC+Y0)*n);
  const LS=layersFor(z),key=baseMode+(LS.length>BASES[baseMode].length?"t":"")+z;let g=tilesG.querySelector(`g[data-k="${key}"]`);
  if(!g){g=document.createElementNS(NS,"g");g.dataset.k=key;LS.forEach(L=>{const c=document.createElementNS(NS,"g");if(L.cls)c.setAttribute("class",L.cls);g.appendChild(c);});g._t=new Map();}
  const tb=$("trailBtn");if(tb){tb.classList.toggle("wait",trailsOn&&z<TRAIL_MIN_Z);tb.title=trailsOn&&z<TRAIL_MIN_Z?"지도를 더 확대하면 등산로가 보여요":"산림청 등산로 켜기/끄기";}
- if(tilesG.lastChild!==g)tilesG.appendChild(g);
+ if(tilesG.lastChild!==g){[...tilesG.children].forEach(o=>{if(o!==g&&!o._done)o.remove();});tilesG.appendChild(g);}
  const want=new Set();
- for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)LS.forEach((L,li)=>{
-  const id=`${L.id}/${z}/${y}/${x}`;want.add(id);if(g._t.has(id))return;
+ /* visible tiles first, then a one-tile ring of the base layer so short pans are already loaded */
+ const cells=[];for(let x=x0-1;x<=x1+1;x++)for(let y=y0-1;y<=y1+1;y++){const vis=x>=x0&&x<=x1&&y>=y0&&y<=y1;cells.push([x,y,vis,(x-(x0+x1)/2)**2+(y-(y0+y1)/2)**2]);}
+ cells.sort((a,b)=>(b[2]-a[2])||(a[3]-b[3]));
+ for(const [x,y,vis] of cells)LS.forEach((L,li)=>{
+  if(!vis&&li>0)return;
+  const id=`${L.id}/${z}/${y}/${x}`;if(vis)want.add(id);if(g._t.has(id))return;
   const im=document.createElementNS(NS,"image");
   im.setAttribute("x",(x/n-X0)*SC);im.setAttribute("y",(y/n-Y0)*SC);im.setAttribute("width",ts*1.004);im.setAttribute("height",ts*1.004);im.setAttribute("preserveAspectRatio","none");
   im.addEventListener("load",()=>{im.dataset.ok=1;tileOk++;tilesDone(g);});
   im.addEventListener("error",()=>{im.dataset.ok=1;im.style.display="none";tileErr++;tilesDone(g);});
-  im.setAttribute("href",L.url(z,y,x));
+  im.setAttribute("decoding","async");im.setAttribute("href",L.url(z,y,x));
   g._t.set(id,im);g.children[li].appendChild(im);});
  g._want=want;
- if(g._t.size>want.size*3)for(const [id,im] of g._t)if(!want.has(id)){im.remove();g._t.delete(id);}
+ if(g._t.size>want.size*4+40)for(const [id,im] of g._t)if(!want.has(id)){im.remove();g._t.delete(id);}
  tilesDone(g);}
 function tilesDone(g){
  if(g!==tilesG.lastChild)return;
- if(g._want&&[...g._want].every(id=>g._t.get(id)&&g._t.get(id).dataset.ok))[...tilesG.children].forEach(o=>{if(o!==g)o.remove();});
+ if(g._want&&[...g._want].every(id=>g._t.get(id)&&g._t.get(id).dataset.ok)){g._done=1;[...tilesG.children].forEach(o=>{if(o!==g)o.remove();});}
  const bad=tileErr>8&&!tileOk;$("mapwrap").classList.toggle("tiles-on",!!tileOk);$("attr").textContent=bad?"브이월드 지도를 불러오지 못했어요":"지도 © 브이월드(국토교통부)"+(g.dataset.k.includes("t")?" · 등산로 © 산림청":"");}
 /* ---------- 주소·장소 검색 (브이월드 검색 API, JSONP) + 박지 이름 ---------- */
 let qSeq=0;
@@ -1287,8 +1299,9 @@ function flyTo(lng,lat,k){const [cx,cy]=P(lng,lat);const w=home.w/k,h=home.h/k;l
 const isPhone=()=>matchMedia("(max-width:760px)").matches;
 let anim=null;
 function animate(to){cancelAnimationFrame(anim);const from={...view},t0=performance.now(),dur=matchMedia("(prefers-reduced-motion: reduce)").matches?0:450;
- const step=t=>{const u=dur?Math.min(1,(t-t0)/dur):1,e=1-Math.pow(1-u,3);for(const k in view)view[k]=from[k]+(to[k]-from[k])*e;setVB();if(u<1)anim=requestAnimationFrame(step);};anim=requestAnimationFrame(step);}
-function zoomAt(f,px,py){const r=svg.getBoundingClientRect();const mx=view.x+(px-r.left)/r.width*view.w,my=view.y+(py-r.top)/r.height*view.h;
+ const zooming=Math.abs(to.w-from.w)>from.w*.01;
+ const step=t=>{const u=dur?Math.min(1,(t-t0)/dur):1,e=1-Math.pow(1-u,3);for(const k in view)view[k]=from[k]+(to[k]-from[k])*e;if(zooming&&u<1)lastZoomT=performance.now();setVB();if(u<1)anim=requestAnimationFrame(step);};anim=requestAnimationFrame(step);}
+function zoomAt(f,px,py){lastZoomT=performance.now();const r=svg.getBoundingClientRect();const mx=view.x+(px-r.left)/r.width*view.w,my=view.y+(py-r.top)/r.height*view.h;
  let w=view.w/f;w=Math.max(home.w/1200,Math.min(home.w*1.3,w));const ff=view.w/w,h=view.h/ff;
  view={x:mx-(mx-view.x)/ff,y:my-(my-view.y)/ff,w,h};setVB();}
 svg.addEventListener("wheel",e=>{e.preventDefault();zoomAt(Math.exp(-e.deltaY*0.0015),e.clientX,e.clientY)},{passive:false});
