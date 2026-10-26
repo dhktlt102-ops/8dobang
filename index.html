@@ -154,6 +154,14 @@ svg.map.drag{cursor:grabbing}
 .legend{position:absolute;left:14px;bottom:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;display:flex;flex-direction:column;gap:3px;max-width:calc(100% - 28px)}
 .legend .r{display:flex;gap:7px;align-items:center}
 .legend .cap{color:var(--muted);font-size:11px;margin-top:2px}
+.tiles{pointer-events:none}
+.mapwrap.tiles-on #grid{display:none}
+.basesw{display:flex;flex-direction:column;margin-top:6px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.basesw button{width:34px;height:32px;border:0;border-radius:0;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--muted);padding:0}
+.basesw button+button{border-top:1px solid var(--line)}
+.basesw button[aria-pressed="true"]{background:var(--pine);color:var(--panel)}
+.attr{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-size:10px;color:var(--ink);background:color-mix(in srgb,var(--panel) 75%,transparent);padding:1px 6px;border-radius:4px;pointer-events:none;white-space:nowrap}
+.mapwrap.sat .pin text{fill:#fff;stroke:#000;stroke-width:.7px}
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px}
 .tab{border:0;background:transparent;padding:6px 14px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--pine)}
@@ -202,6 +210,7 @@ svg.map.drag{cursor:grabbing}
   .body{padding-bottom:env(safe-area-inset-bottom,0px)}
   .detail{gap:14px}
   .zoom{top:max(10px,env(safe-area-inset-top,0px))}
+  .attr{bottom:auto;top:calc(max(12px,env(safe-area-inset-top,0px)) + 6px);left:calc(max(12px,env(safe-area-inset-left,0px)) + 128px);transform:none}
   .mascot{right:auto;bottom:auto;left:calc(max(12px,env(safe-area-inset-left,0px)) + 64px);top:max(2px,env(safe-area-inset-top,0px));width:56px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -260,7 +269,12 @@ svg.map.drag{cursor:grabbing}
       <button id="zin" aria-label="확대">+</button>
       <button id="zout" aria-label="축소">−</button>
       <button id="zreset" aria-label="전체 보기" style="font-size:13px">⤢</button>
+      <div class="basesw" id="baseSw" role="group" aria-label="지도 종류">
+        <button data-b="map" aria-pressed="true">일반</button>
+        <button data-b="sat" aria-pressed="false">위성</button>
+      </div>
     </div>
+    <div class="attr" id="attr">지도 © 브이월드(국토교통부)</div>
     <svg class="mascot" aria-hidden="true" viewBox="16 2 180 194" xmlns="http://www.w3.org/2000/svg"><path d="M44.5 43.9 L61.9 42.6 L72.3 35.2 L84.5 22.1 L101.9 19.9 L121.1 6.0 L128.0 19.9 L140.2 39.5 L152.4 61.3 L157.6 78.7 L159.4 98.3 L158.3 111.3 L163.5 117.4 L157.6 122.2 L159.4 141.8 L154.1 152.7 L145.4 160.1 L133.2 163.5 L124.5 170.1 L112.4 167.9 L101.9 174.4 L94.9 180.9 L86.2 187.5 L74.1 185.3 L60.1 194.0 L51.4 187.5 L49.7 174.4 L56.7 161.4 L53.2 146.1 L61.9 124.4 L60.1 111.3 L56.7 102.6 L44.5 91.7 L53.2 78.7 L68.8 78.7 L60.1 67.8 L65.4 56.9 L56.7 50.4Z" fill="#8fc49f" stroke-linejoin="round"/><ellipse cx="56.7" cy="217.9" rx="11.3" ry="5.6" fill="#8fc49f"/><ellipse cx="100" cy="176" rx="50" ry="6" fill="#000" opacity=".1"/><path d="M118 70 L128 176" stroke="#8a5a2b" stroke-width="6" stroke-linecap="round"/><path d="M146 84 q-2-8 4-12" stroke="#6e4520" stroke-width="3" fill="none" stroke-linecap="round"/>
 <path d="M149 76 q10-6 14 2 q-8 6-14-2z" fill="#2e7d5b" stroke="#22302a" stroke-width="2"/>
 <path d="M146 84 c-10 0-12 9-10 16 c1 4 4 6 1 9 c-10 4-14 12-12 20 c2 9 11 13 21 13 c10 0 19-4 21-13 c2-8-2-16-12-20 c-3-3 0-5 1-9 c2-7 0-16-10-16z" fill="#e9c46a" stroke="#22302a" stroke-width="3.5" stroke-linejoin="round"/>
@@ -1115,13 +1129,17 @@ const PINPATH={free:"M0,0 C-1.4,-2.2 -3,-3.3 -3,-5.2 A3,3 0 1 1 3,-5.2 C3,-3.3 1
 /* ---------- map ---------- */
 const svg=$("map");
 const K=Math.cos(36*Math.PI/180),S=100;
-const P=(lng,lat)=>[(lng-124.5)*S*K,(38.7-lat)*S];
+/* Web Mercator (same as VWorld tiles); ~100 units per degree of latitude around 36°N */
+const SC=100*360*Math.cos(36*Math.PI/180);
+const MX=lng=>(lng+180)/360,MY=lat=>{const t=Math.sin(lat*Math.PI/180);return .5-Math.log((1+t)/(1-t))/(4*Math.PI);};
+const X0=MX(124.5),Y0=MY(38.7);
+const P=(lng,lat)=>[(MX(lng)-X0)*SC,(MY(lat)-Y0)*SC];
 let view={x:0,y:0,w:1,h:1},home=null;
 function setVB(){svg.setAttribute("viewBox",`${view.x} ${view.y} ${view.w} ${view.h}`);
  const k=home?home.w/view.w:1;const ppu=(svg.clientWidth||600)/view.w;const sc=3.1/ppu;
  document.querySelectorAll(".pin").forEach(p=>p.setAttribute("transform",`translate(${p.dataset.x},${p.dataset.y}) scale(${sc})`));
  document.querySelectorAll(".grid text").forEach(t=>t.style.fontSize=(10/ppu)+"px");
- svg.classList.toggle("labels-on",k>2.2);}
+ svg.classList.toggle("labels-on",k>2.2);queueTiles();}
 function fitHome(){const r=svg.getBoundingClientRect();const [x0,y0]=P(124.6,38.65),[x1,y1]=P(131.0,33.05);
  const bw=x1-x0,bh=y1-y0,ar=r.width/Math.max(r.height,1);let w=bw,h=bh;if(bw/bh<ar)w=bh*ar;else h=bw/ar;
  home={x:x0-(w-bw)/2,y:y0-(h-bh)/2,w,h};view={...home};setVB();}
@@ -1136,6 +1154,41 @@ function drawLand(){
  const ring=rg=>rg.map((c,i)=>{const [x,y]=P(c[0],c[1]);return(i?"L":"M")+x.toFixed(2)+","+y.toFixed(2)}).join("")+"Z";
  $("land").innerHTML=fc.features.map(f=>{const polys=f.geometry.type==="Polygon"?[f.geometry.coordinates]:f.geometry.coordinates;
   return`<path class="prov" d="${polys.map(p=>p.map(ring).join("")).join("")}"/>`}).join("");}
+/* ---------- VWorld base map tiles (일반 / 위성) drawn under the pins ---------- */
+const VW_KEY="61BE2681-DFF5-4383-83DA-F1D11F24E07F";
+const BASES={map:[["Base","png"]],sat:[["Satellite","jpeg"],["Hybrid","png"]]};
+const NS="http://www.w3.org/2000/svg";
+let baseMode="map";try{const b=localStorage.getItem("bakji-base");if(BASES[b])baseMode=b;}catch(e){}
+const tilesG=document.createElementNS(NS,"g");tilesG.setAttribute("class","tiles");$("vp").insertBefore(tilesG,$("pins"));
+let tileRaf=0,tileOk=0,tileErr=0;
+function queueTiles(){if(!tileRaf)tileRaf=requestAnimationFrame(()=>{tileRaf=0;updateTiles();});}
+function updateTiles(){
+ if(!home)return;
+ const ppu=(svg.clientWidth||600)/view.w;
+ const z=Math.max(6,Math.min(19,Math.floor(Math.log2(ppu*SC/256)+.6))),n=2**z,ts=SC/n;
+ const x0=Math.floor((view.x/SC+X0)*n),x1=Math.floor(((view.x+view.w)/SC+X0)*n),y0=Math.floor((view.y/SC+Y0)*n),y1=Math.floor(((view.y+view.h)/SC+Y0)*n);
+ const key=baseMode+z;let g=tilesG.querySelector(`g[data-k="${key}"]`);
+ if(!g){g=document.createElementNS(NS,"g");g.dataset.k=key;BASES[baseMode].forEach(()=>g.appendChild(document.createElementNS(NS,"g")));g._t=new Map();}
+ if(tilesG.lastChild!==g)tilesG.appendChild(g);
+ const want=new Set();
+ for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)BASES[baseMode].forEach(([name,ext],li)=>{
+  const id=`${name}/${z}/${y}/${x}`;want.add(id);if(g._t.has(id))return;
+  const im=document.createElementNS(NS,"image");
+  im.setAttribute("x",(x/n-X0)*SC);im.setAttribute("y",(y/n-Y0)*SC);im.setAttribute("width",ts*1.004);im.setAttribute("height",ts*1.004);im.setAttribute("preserveAspectRatio","none");
+  im.addEventListener("load",()=>{im.dataset.ok=1;tileOk++;tilesDone(g);});
+  im.addEventListener("error",()=>{im.dataset.ok=1;im.style.display="none";tileErr++;tilesDone(g);});
+  im.setAttribute("href",`https://api.vworld.kr/req/wmts/1.0.0/${VW_KEY}/${id}.${ext}`);
+  g._t.set(id,im);g.children[li].appendChild(im);});
+ g._want=want;
+ if(g._t.size>want.size*3)for(const [id,im] of g._t)if(!want.has(id)){im.remove();g._t.delete(id);}
+ tilesDone(g);}
+function tilesDone(g){
+ if(g!==tilesG.lastChild)return;
+ if(g._want&&[...g._want].every(id=>g._t.get(id)&&g._t.get(id).dataset.ok))[...tilesG.children].forEach(o=>{if(o!==g)o.remove();});
+ const bad=tileErr>8&&!tileOk;$("mapwrap").classList.toggle("tiles-on",!!tileOk);$("attr").textContent=bad?"브이월드 지도를 불러오지 못했어요":"지도 © 브이월드(국토교통부)";}
+function setBase(b){if(!BASES[b])return;baseMode=b;try{localStorage.setItem("bakji-base",b)}catch(e){}
+ document.querySelectorAll("#baseSw button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.b===b));
+ $("mapwrap").classList.toggle("sat",b==="sat");queueTiles();}
 function drawPins(all){
  $("pins").innerHTML=all.map(({s,r,vis})=>{const [x,y]=P(s.lng,s.lat);const ban=s.status==="ban";const col=ban?"--gX":r.g.c;
   const cls=["pin",state.sel===s.id?"sel":"",state.hl===s.id?"hl":"",vis?"":"dim"].join(" ");
@@ -1161,7 +1214,7 @@ let anim=null;
 function animate(to){cancelAnimationFrame(anim);const from={...view},t0=performance.now(),dur=matchMedia("(prefers-reduced-motion: reduce)").matches?0:450;
  const step=t=>{const u=dur?Math.min(1,(t-t0)/dur):1,e=1-Math.pow(1-u,3);for(const k in view)view[k]=from[k]+(to[k]-from[k])*e;setVB();if(u<1)anim=requestAnimationFrame(step);};anim=requestAnimationFrame(step);}
 function zoomAt(f,px,py){const r=svg.getBoundingClientRect();const mx=view.x+(px-r.left)/r.width*view.w,my=view.y+(py-r.top)/r.height*view.h;
- let w=view.w/f;w=Math.max(home.w/14,Math.min(home.w*1.3,w));const ff=view.w/w,h=view.h/ff;
+ let w=view.w/f;w=Math.max(home.w/1200,Math.min(home.w*1.3,w));const ff=view.w/w,h=view.h/ff;
  view={x:mx-(mx-view.x)/ff,y:my-(my-view.y)/ff,w,h};setVB();}
 svg.addEventListener("wheel",e=>{e.preventDefault();zoomAt(Math.exp(-e.deltaY*0.0015),e.clientX,e.clientY)},{passive:false});
 const ptrs=new Map();let last=null,moved=0;
@@ -1177,6 +1230,7 @@ svg.addEventListener("click",e=>{if(moved>4)e.stopPropagation();},true);
 $("zin").onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1.6,r.left+r.width/2,r.top+r.height/2)};
 $("zout").onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1/1.6,r.left+r.width/2,r.top+r.height/2)};
 $("zreset").onclick=()=>animate({...home});
+document.querySelectorAll("#baseSw button").forEach(b=>b.onclick=()=>setBase(b.dataset.b));setBase(baseMode);
 $("legend").innerHTML=GRADES.map(g=>`<div class="r"><span class="dot" style="background:var(${g.c})"></span>${g.name} <span class="mono" style="color:var(--muted)">${g.k==="D"?"<40":g.min+"+"}</span></div>`).join("")+
  `<div class="r"><svg width="11" height="13" viewBox="-3.5 -9 7 9.5"><path d="${PINPATH.free}" fill="var(--muted)"/></svg>무료 노지 <svg width="11" height="13" viewBox="-3.5 -9 7 9.5" style="margin-left:6px"><path d="${PINPATH.paid}" fill="var(--muted)"/></svg>유료 <svg width="11" height="13" viewBox="-3.8 -9 7.6 9.5" style="margin-left:6px"><path d="${PINPATH.unv}" fill="var(--muted)"/></svg>미확인</div><div class="r"><span class="dot" style="background:var(--gX)"></span>야영 금지(✕) · 금지 가능성(!)</div><div class="cap">강수·풍속·하늘·최저기온, 5개 모델 종합</div>`;
 
