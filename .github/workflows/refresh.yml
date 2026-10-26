@@ -1,18 +1,19 @@
 # 저장소 안 경로: .github/workflows/refresh.yml
-# 하루 두 번(한국시간 05:37, 17:37) 예보를 새로 받아 index.html을 갱신하고 사이트에 배포해요.
-# 파일을 올리거나 고칠 때(push)도 바로 다시 배포돼요.
+# 3시간마다(한국시간 00:17, 03:17, 06:17 … 21:17) 예보를 새로 받아 사이트에 배포해요.
+# 파일을 올리거나 고칠 때(push)도 새 예보를 받아 바로 다시 배포해요.
+# 예보 데이터는 배포본에만 넣고 저장소에는 저장하지 않아요(저장소 용량이 계속 커지지 않게).
 name: 예보 자동 갱신
 
 on:
   schedule:
-    - cron: "37 20,8 * * *"   # UTC 기준 = 한국시간 05:37, 17:37
-  workflow_dispatch:           # Actions 탭에서 'Run workflow'로 직접 실행
+    - cron: "17 */3 * * *"   # UTC 기준 3시간마다 = 한국시간 00:17, 03:17, 06:17 …
+  workflow_dispatch:          # Actions 탭에서 'Run workflow'로 직접 실행
   push:
     branches: [main]
 
 permissions:
-  contents: write   # 갱신된 index.html 저장
-  pages: write      # 사이트 배포
+  contents: read
+  pages: write
   id-token: write
 
 concurrency:
@@ -29,17 +30,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 예보 받아서 index.html 갱신
-        if: github.event_name != 'push'
+        continue-on-error: true   # 예보 서버가 잠깐 안 되면 기존 데이터로라도 배포
         run: python3 refresh.py index.html
-
-      - name: 갱신 내용 저장
-        if: github.event_name != 'push'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git diff --cached --quiet || git commit -m "예보 자동 갱신 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
-          git push
 
       - uses: actions/configure-pages@v5
 
