@@ -160,6 +160,23 @@ svg.map.drag{cursor:grabbing}
 .basesw button{width:34px;height:32px;border:0;border-radius:0;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--muted);padding:0}
 .basesw button+button{border-top:1px solid var(--line)}
 .basesw button[aria-pressed="true"]{background:var(--pine);color:var(--panel)}
+.zoom .trailbtn{width:34px;height:34px;font-size:10.5px;font-weight:700;letter-spacing:-.04em;color:var(--muted);padding:0;margin-top:6px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.zoom .trailbtn[aria-pressed="true"]{background:#2e7d32;border-color:#2e7d32;color:#fff}
+.zoom .trailbtn[aria-pressed="true"].wait{background:var(--panel);color:#2e7d32;border:1.5px dashed #2e7d32}
+.msearch{position:absolute;left:14px;top:14px;z-index:6;width:min(320px,calc(100% - 90px))}
+.msearch input{width:100%;height:38px;border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:0 40px 0 12px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.msearch input:focus{outline:2px solid var(--pine);outline-offset:0}
+.msearch>button{position:absolute;right:3px;top:3px;width:32px;height:32px;border:0;background:transparent;color:var(--pine);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:7px}
+.qres{list-style:none;margin:6px 0 0;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:9px;box-shadow:0 6px 20px rgba(0,0,0,.15);max-height:min(360px,55vh);overflow:auto}
+.qres button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:7px 9px;border-radius:6px;cursor:pointer;line-height:1.35}
+.qres button:hover,.qres button:focus-visible{background:var(--pine-soft)}
+.qres b{font-weight:600;font-size:13.5px}
+.qres small{display:block;color:var(--muted);font-size:11.5px}
+.qres .k{font-size:10.5px;border:1px solid currentColor;border-radius:999px;padding:0 6px;margin-left:5px;color:var(--muted);vertical-align:1px}
+.qres .k.site{color:var(--pine)}
+.qres .msg{padding:8px 10px;color:var(--muted);font-size:12.5px}
+.qpin text{opacity:1!important}
+.mapwrap.sat .trail{filter:drop-shadow(0 0 1.2px rgba(255,255,255,.95))}
 .attr{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-size:10px;color:var(--ink);background:color-mix(in srgb,var(--panel) 75%,transparent);padding:1px 6px;border-radius:4px;pointer-events:none;white-space:nowrap}
 .mapwrap.sat .pin text{fill:#fff;stroke:#000;stroke-width:.7px}
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px}
@@ -211,6 +228,11 @@ svg.map.drag{cursor:grabbing}
   .detail{gap:14px}
   .zoom{top:max(10px,env(safe-area-inset-top,0px))}
   .attr{bottom:auto;top:calc(max(12px,env(safe-area-inset-top,0px)) + 6px);left:calc(max(12px,env(safe-area-inset-left,0px)) + 128px);transform:none}
+  .msearch{left:max(12px,env(safe-area-inset-left,0px));right:calc(max(12px,env(safe-area-inset-right,0px)) + 44px);width:auto;top:max(10px,env(safe-area-inset-top,0px))}
+  .legbtn{top:calc(max(10px,env(safe-area-inset-top,0px)) + 48px)!important}
+  .legend{top:calc(max(10px,env(safe-area-inset-top,0px)) + 88px)!important}
+  .mascot{margin-top:48px}
+  .attr{margin-top:48px}
   .mascot{right:auto;bottom:auto;left:calc(max(12px,env(safe-area-inset-left,0px)) + 64px);top:max(2px,env(safe-area-inset-top,0px));width:56px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -264,7 +286,12 @@ svg.map.drag{cursor:grabbing}
   </aside>
   <div class="vsplit" id="vsplit" role="separator" aria-orientation="vertical" aria-label="목록과 지도 사이 크기 조절" tabindex="0" title="끌어서 크기 조절 · 두 번 눌러 원래대로"></div>
   <section class="mapwrap" id="mapwrap" aria-label="박지 지도">
-    <svg class="map" id="map" xmlns="http://www.w3.org/2000/svg"><g id="vp"><g id="grid" class="grid"></g><g id="land"></g><g id="pins"></g></g></svg>
+    <svg class="map" id="map" xmlns="http://www.w3.org/2000/svg"><g id="vp"><g id="grid" class="grid"></g><g id="land"></g><g id="pins"></g><g id="qmark"></g></g></svg>
+    <form class="msearch" id="msearch" role="search" autocomplete="off">
+      <input id="qIn" type="search" placeholder="주소·장소·박지 검색" aria-label="주소나 장소 검색" enterkeyhint="search" maxlength="60">
+      <button type="submit" aria-label="검색"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12.8 12.8 L17 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+      <ul class="qres" id="qRes" hidden></ul>
+    </form>
     <div class="zoom">
       <button id="zin" aria-label="확대">+</button>
       <button id="zout" aria-label="축소">−</button>
@@ -273,6 +300,7 @@ svg.map.drag{cursor:grabbing}
         <button data-b="map" aria-pressed="true">일반</button>
         <button data-b="sat" aria-pressed="false">위성</button>
       </div>
+      <button class="trailbtn" id="trailBtn" aria-pressed="true" title="산림청 등산로 켜기/끄기">등산로</button>
     </div>
     <div class="attr" id="attr">지도 © 브이월드(국토교통부)</div>
     <svg class="mascot" aria-hidden="true" viewBox="16 2 180 194" xmlns="http://www.w3.org/2000/svg"><path d="M44.5 43.9 L61.9 42.6 L72.3 35.2 L84.5 22.1 L101.9 19.9 L121.1 6.0 L128.0 19.9 L140.2 39.5 L152.4 61.3 L157.6 78.7 L159.4 98.3 L158.3 111.3 L163.5 117.4 L157.6 122.2 L159.4 141.8 L154.1 152.7 L145.4 160.1 L133.2 163.5 L124.5 170.1 L112.4 167.9 L101.9 174.4 L94.9 180.9 L86.2 187.5 L74.1 185.3 L60.1 194.0 L51.4 187.5 L49.7 174.4 L56.7 161.4 L53.2 146.1 L61.9 124.4 L60.1 111.3 L56.7 102.6 L44.5 91.7 L53.2 78.7 L68.8 78.7 L60.1 67.8 L65.4 56.9 L56.7 50.4Z" fill="#8fc49f" stroke-linejoin="round"/><ellipse cx="56.7" cy="217.9" rx="11.3" ry="5.6" fill="#8fc49f"/><ellipse cx="100" cy="176" rx="50" ry="6" fill="#000" opacity=".1"/><path d="M118 70 L128 176" stroke="#8a5a2b" stroke-width="6" stroke-linecap="round"/><path d="M146 84 q-2-8 4-12" stroke="#6e4520" stroke-width="3" fill="none" stroke-linecap="round"/>
@@ -1161,23 +1189,31 @@ const NS="http://www.w3.org/2000/svg";
 let baseMode="map";try{const b=localStorage.getItem("bakji-base");if(BASES[b])baseMode=b;}catch(e){}
 const tilesG=document.createElementNS(NS,"g");tilesG.setAttribute("class","tiles");$("vp").insertBefore(tilesG,$("pins"));
 let tileRaf=0,tileOk=0,tileErr=0;
+/* 등산로: 산림청 등산로 레이어(브이월드 WMS lt_l_frstclimb), 확대 10단계부터 */
+const TRAIL_MIN_Z=10,RM=20037508.342789244;
+let trailsOn=true;try{if(localStorage.getItem("bakji-trail")==="0")trailsOn=false;}catch(e){}
+function trailUrl(z,y,x){const s=2*RM/2**z,x0=-RM+x*s,y1=RM-y*s;
+ return`https://api.vworld.kr/req/wms?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=lt_l_frstclimb&STYLES=lt_l_frstclimb&CRS=EPSG:900913&BBOX=${x0},${y1-s},${x0+s},${y1}&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=true&KEY=${VW_KEY}&DOMAIN=${location.hostname}`;}
+function layersFor(z){const L=BASES[baseMode].map(([name,ext])=>({id:name,url:(z,y,x)=>`https://api.vworld.kr/req/wmts/1.0.0/${VW_KEY}/${name}/${z}/${y}/${x}.${ext}`}));
+ if(trailsOn&&z>=TRAIL_MIN_Z)L.push({id:"trail",cls:"trail",url:trailUrl});return L;}
 function queueTiles(){if(!tileRaf)tileRaf=requestAnimationFrame(()=>{tileRaf=0;updateTiles();});}
 function updateTiles(){
  if(!home)return;
  const ppu=(svg.clientWidth||600)/view.w;
  const z=Math.max(6,Math.min(19,Math.floor(Math.log2(ppu*SC/256)+.6))),n=2**z,ts=SC/n;
  const x0=Math.floor((view.x/SC+X0)*n),x1=Math.floor(((view.x+view.w)/SC+X0)*n),y0=Math.floor((view.y/SC+Y0)*n),y1=Math.floor(((view.y+view.h)/SC+Y0)*n);
- const key=baseMode+z;let g=tilesG.querySelector(`g[data-k="${key}"]`);
- if(!g){g=document.createElementNS(NS,"g");g.dataset.k=key;BASES[baseMode].forEach(()=>g.appendChild(document.createElementNS(NS,"g")));g._t=new Map();}
+ const LS=layersFor(z),key=baseMode+(LS.length>BASES[baseMode].length?"t":"")+z;let g=tilesG.querySelector(`g[data-k="${key}"]`);
+ if(!g){g=document.createElementNS(NS,"g");g.dataset.k=key;LS.forEach(L=>{const c=document.createElementNS(NS,"g");if(L.cls)c.setAttribute("class",L.cls);g.appendChild(c);});g._t=new Map();}
+ const tb=$("trailBtn");if(tb){tb.classList.toggle("wait",trailsOn&&z<TRAIL_MIN_Z);tb.title=trailsOn&&z<TRAIL_MIN_Z?"지도를 더 확대하면 등산로가 보여요":"산림청 등산로 켜기/끄기";}
  if(tilesG.lastChild!==g)tilesG.appendChild(g);
  const want=new Set();
- for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)BASES[baseMode].forEach(([name,ext],li)=>{
-  const id=`${name}/${z}/${y}/${x}`;want.add(id);if(g._t.has(id))return;
+ for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)LS.forEach((L,li)=>{
+  const id=`${L.id}/${z}/${y}/${x}`;want.add(id);if(g._t.has(id))return;
   const im=document.createElementNS(NS,"image");
   im.setAttribute("x",(x/n-X0)*SC);im.setAttribute("y",(y/n-Y0)*SC);im.setAttribute("width",ts*1.004);im.setAttribute("height",ts*1.004);im.setAttribute("preserveAspectRatio","none");
   im.addEventListener("load",()=>{im.dataset.ok=1;tileOk++;tilesDone(g);});
   im.addEventListener("error",()=>{im.dataset.ok=1;im.style.display="none";tileErr++;tilesDone(g);});
-  im.setAttribute("href",`https://api.vworld.kr/req/wmts/1.0.0/${VW_KEY}/${id}.${ext}`);
+  im.setAttribute("href",L.url(z,y,x));
   g._t.set(id,im);g.children[li].appendChild(im);});
  g._want=want;
  if(g._t.size>want.size*3)for(const [id,im] of g._t)if(!want.has(id)){im.remove();g._t.delete(id);}
@@ -1185,7 +1221,46 @@ function updateTiles(){
 function tilesDone(g){
  if(g!==tilesG.lastChild)return;
  if(g._want&&[...g._want].every(id=>g._t.get(id)&&g._t.get(id).dataset.ok))[...tilesG.children].forEach(o=>{if(o!==g)o.remove();});
- const bad=tileErr>8&&!tileOk;$("mapwrap").classList.toggle("tiles-on",!!tileOk);$("attr").textContent=bad?"브이월드 지도를 불러오지 못했어요":"지도 © 브이월드(국토교통부)";}
+ const bad=tileErr>8&&!tileOk;$("mapwrap").classList.toggle("tiles-on",!!tileOk);$("attr").textContent=bad?"브이월드 지도를 불러오지 못했어요":"지도 © 브이월드(국토교통부)"+(g.dataset.k.includes("t")?" · 등산로 © 산림청":"");}
+/* ---------- 주소·장소 검색 (브이월드 검색 API, JSONP) + 박지 이름 ---------- */
+let qSeq=0;
+function vwSearch(q,type,extra,size){return new Promise(res=>{const cb="__vw"+(++qSeq);const sc=document.createElement("script");let done=0;
+ const fin=v=>{if(done)return;done=1;delete window[cb];sc.remove();res(v);};window[cb]=d=>fin(d);sc.onerror=()=>fin(null);setTimeout(()=>fin(null),7000);
+ sc.src=`https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=EPSG:4326&size=${size}&page=1&format=json&errorformat=json&type=${type}${extra}&query=${encodeURIComponent(q)}&key=${VW_KEY}&domain=${location.hostname}&callback=${cb}`;
+ document.head.appendChild(sc);});}
+const norm=v=>String(v||"").replace(/\s+/g,"").toLowerCase();
+async function runSearch(q){
+ q=q.trim();const box=$("qRes");if(!q){box.hidden=true;return;}
+ box.hidden=false;box.innerHTML=`<li class="msg">찾는 중…</li>`;
+ const nq=norm(q),R=[];
+ SITES.filter(x=>norm(x.name).includes(nq)||norm(x.loc).includes(nq)).slice(0,5).forEach(x=>R.push({k:"site",id:x.id,t:x.name,a:x.loc,lng:x.lng,lat:x.lat}));
+ const items=d=>(d&&d.response&&d.response.status==="OK"&&d.response.result&&d.response.result.items)||[];
+ const [pl,rd,pc]=await Promise.all([vwSearch(q,"place","",8),vwSearch(q,"address","&category=road",4),vwSearch(q,"address","&category=parcel",4)]);
+ const seen=new Set();
+ const add=(k,t,a,x,y)=>{const lng=+x,lat=+y;if(!(lat>32&&lat<39.5&&lng>123&&lng<132.5))return;const key=t+"|"+lng.toFixed(4);if(seen.has(key))return;seen.add(key);R.push({k,t,a,lng,lat});};
+ items(pl).forEach(i=>add("place",i.title,(i.address&&(i.address.road||i.address.parcel))||"",i.point.x,i.point.y));
+ items(rd).forEach(i=>add("addr",i.address.road,i.address.parcel?"지번 "+i.address.parcel:"",i.point.x,i.point.y));
+ items(pc).forEach(i=>add("addr",i.address.parcel,i.address.road||"",i.point.x,i.point.y));
+ if(!pl&&!rd&&!pc&&!R.length){box.innerHTML=`<li class="msg">검색 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.</li>`;return;}
+ if(!R.length){box.innerHTML=`<li class="msg">검색 결과가 없어요. 시·군 이름을 함께 넣어 보세요.</li>`;return;}
+ const KN={site:"박지",place:"장소",addr:"주소"};
+ box.innerHTML=R.slice(0,14).map((r,i)=>`<li><button type="button" data-i="${i}"><b>${esc(r.t)}</b><span class="k ${r.k}">${KN[r.k]}</span><small>${esc(r.a)}</small></button></li>`).join("");
+ box._r=R;}
+function showPlace(r){
+ $("qRes").hidden=true;$("qIn").blur();
+ if(r.k==="site"){select(r.id);return;}
+ const [x,y]=P(r.lng,r.lat);
+ $("qmark").innerHTML=`<g class="pin qpin" data-x="${x}" data-y="${y}"><circle cy="0" r="1.3" fill="#e4572e" opacity=".35"/><path d="M0,0 C-1.4,-2.2 -3.2,-3.4 -3.2,-5.4 A3.2,3.2 0 1 1 3.2,-5.4 C3.2,-3.4 1.4,-2.2 0,0Z" fill="#e4572e" stroke="#fff" stroke-width=".7"/><circle cy="-5.4" r="1.2" fill="#fff"/><text x="4" y="-4">${esc(r.t)}</text></g>`;
+ if(isPhone()&&typeof setSheet==="function")setSheet("peek");
+ const z=r.k==="addr"?15:14,r0=svg.getBoundingClientRect(),w=r0.width/(256*2**z/SC),h=w*r0.height/Math.max(r0.width,1);
+ animate({x:x-w/2,y:y-h/2,w,h});}
+$("msearch").addEventListener("submit",e=>{e.preventDefault();runSearch($("qIn").value);});
+$("qRes").addEventListener("click",e=>{const b=e.target.closest("button[data-i]");if(b)showPlace($("qRes")._r[+b.dataset.i]);});
+$("qIn").addEventListener("input",()=>{if(!$("qIn").value){$("qRes").hidden=true;$("qmark").innerHTML="";}});
+$("qIn").addEventListener("keydown",e=>{if(e.key==="Escape"){$("qRes").hidden=true;}});
+$("qIn").addEventListener("focus",()=>{if($("qRes")._r&&$("qIn").value)$("qRes").hidden=false;});
+svg.addEventListener("pointerdown",()=>{$("qRes").hidden=true;});
+function setTrails(on){trailsOn=on;try{localStorage.setItem("bakji-trail",on?"1":"0")}catch(e){}$("trailBtn").setAttribute("aria-pressed",on);queueTiles();}
 function setBase(b){if(!BASES[b])return;baseMode=b;try{localStorage.setItem("bakji-base",b)}catch(e){}
  document.querySelectorAll("#baseSw button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.b===b));
  $("mapwrap").classList.toggle("sat",b==="sat");queueTiles();}
@@ -1231,6 +1306,7 @@ $("zin").onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1.6,r.left+r.wi
 $("zout").onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1/1.6,r.left+r.width/2,r.top+r.height/2)};
 $("zreset").onclick=()=>animate({...home});
 document.querySelectorAll("#baseSw button").forEach(b=>b.onclick=()=>setBase(b.dataset.b));setBase(baseMode);
+$("trailBtn").onclick=()=>setTrails(!trailsOn);$("trailBtn").setAttribute("aria-pressed",trailsOn);
 $("legend").innerHTML=GRADES.map(g=>`<div class="r"><span class="dot" style="background:var(${g.c})"></span>${g.name} <span class="mono" style="color:var(--muted)">${g.k==="D"?"<40":g.min+"+"}</span></div>`).join("")+
  `<div class="r"><svg width="11" height="13" viewBox="-3.5 -9 7 9.5"><path d="${PINPATH.free}" fill="var(--muted)"/></svg>무료 노지 <svg width="11" height="13" viewBox="-3.5 -9 7 9.5" style="margin-left:6px"><path d="${PINPATH.paid}" fill="var(--muted)"/></svg>유료 <svg width="11" height="13" viewBox="-3.8 -9 7.6 9.5" style="margin-left:6px"><path d="${PINPATH.unv}" fill="var(--muted)"/></svg>미확인</div><div class="r"><span class="dot" style="background:var(--gX)"></span>야영 금지(✕) · 금지 가능성(!)</div><div class="cap">강수·풍속·하늘·최저기온, 5개 모델 종합</div>`;
 
